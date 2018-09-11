@@ -20,3 +20,4 @@ cmakepatch.txt
 # others
 algorithm.txt
 .set_git.sh
+.clang-tidy
