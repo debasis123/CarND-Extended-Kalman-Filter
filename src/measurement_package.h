@@ -1,3 +1,8 @@
+/*
+* @Original Author: Udacity
+* @Last Modified by: debasis123
+*/
+
 #ifndef MEASUREMENT_PACKAGE_H_
 #define MEASUREMENT_PACKAGE_H_
 
@@ -7,8 +12,6 @@
  * Data structure to hold the measurement data
  */
 struct MeasurementPackage {
-  long long timestamp_;
-
   enum class SensorType{
     LASER,
     RADAR
@@ -16,6 +19,8 @@ struct MeasurementPackage {
   SensorType sensor_type_;
 
   Eigen::VectorXd raw_measurements_;
+
+  long long timestamp_;
 };
 
 #endif /* MEASUREMENT_PACKAGE_H_ */

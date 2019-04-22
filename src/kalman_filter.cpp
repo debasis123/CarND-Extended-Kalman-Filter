@@ -1,3 +1,8 @@
+/*
+* @Original Author: Udacity
+* @Last Modified by:   debasis123
+*/
+
 #include "kalman_filter.h"
 #include <cmath>  // for atan2
 
@@ -5,29 +10,28 @@ using Eigen::MatrixXd;
 using Eigen::VectorXd;
 using namespace std;
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
-// NOTE: Eigen library does not initialize VectorXd or MatrixXd objects with zeros upon creation. //
-////////////////////////////////////////////////////////////////////////////////////////////////////
+// NOTE: Eigen library does not initialize VectorXd or MatrixXd objects
+// with zeros upon creation. So initialize accordingly.
 
 KalmanFilter::KalmanFilter() {}
 
 KalmanFilter::~KalmanFilter() {}
 
-void
-KalmanFilter::Init(VectorXd& x_in,
-                   MatrixXd& P_in,
-                   MatrixXd& F_in,
-                   MatrixXd& H_in,
-                   MatrixXd& R_in,
-                   MatrixXd& Q_in)
-{
-  x_ = x_in;
-  P_ = P_in;
-  F_ = F_in;
-  H_ = H_in;
-  R_ = R_in;
-  Q_ = Q_in;
-}
+// void
+// KalmanFilter::Init(VectorXd& x_in,
+//                    MatrixXd& P_in,
+//                    MatrixXd& F_in,
+//                    MatrixXd& H_in,
+//                    MatrixXd& R_in,
+//                    MatrixXd& Q_in)
+// {
+//   x_ = x_in;
+//   P_ = P_in;
+//   F_ = F_in;
+//   H_ = H_in;
+//   R_ = R_in;
+//   Q_ = Q_in;
+// }
 
 void KalmanFilter::Predict() {
   // predict the state
@@ -51,11 +55,11 @@ void KalmanFilter::CommonUpdateForLidarAndRadar(const VectorXd& y) {
 }
 
 void KalmanFilter::Update(const VectorXd& z) {
-  // Because lidar measurement update function is a linear function h, 
+  // Because lidar measurement update function is a linear function h,
   // the update step will use the basic Kalman filter equations
   VectorXd z_pred = H_*x_;
   VectorXd y      = z-z_pred;
-  
+
   CommonUpdateForLidarAndRadar(y);
 }
 

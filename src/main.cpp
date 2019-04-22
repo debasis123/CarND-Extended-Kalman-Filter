@@ -1,3 +1,8 @@
+/*
+* @Original Author: Udacity
+* @Last Modified by:   debasis123
+*/
+
 #include <uWS/uWS.h>
 #include "json.hpp"
 #include "FusionEKF.h"
@@ -26,7 +31,7 @@ using json = nlohmann::json;
  * If there is data, the JSON object in string format will be returned,
  * else the empty string will be returned.
  */
-static std::string hasData(const std::string& s) {
+static std::string hasIncomingDataFromSimulator(const std::string& s) {
   const auto found_null = s.find("null");
   const auto b1         = s.find_first_of("[");
   const auto b2         = s.find_first_of("]");
@@ -43,64 +48,76 @@ static std::string hasData(const std::string& s) {
 /**
  * Gets the laser data from the simulator
  */
-static void fillLaserData(MeasurementPackage& meas_package, istringstream& iss) {
-  // meas_package.sensor_type_ = MeasurementPackage::LASER;
-  meas_package.sensor_type_ = MeasurementPackage::SensorType::LASER;
-  meas_package.raw_measurements_ = VectorXd(2);
+static MeasurementPackage getLaserData(istringstream& iss) {
+  MeasurementPackage meas;
+  meas.sensor_type_ = MeasurementPackage::SensorType::LASER;
+  meas.raw_measurements_ = VectorXd(2);
   double px;    iss >> px;
   double py;    iss >> py;
-  meas_package.raw_measurements_ << px, py;
+  meas.raw_measurements_ << px, py;
   long long timestamp;  iss >> timestamp;
-  meas_package.timestamp_ = timestamp;
+  meas.timestamp_ = timestamp;
+
+  return meas;
 }
 
 /**
  * Gets radar data from the simulator
  */
-static void fillRadarData(MeasurementPackage& meas_package, istringstream& iss) {
-  meas_package.sensor_type_ = MeasurementPackage::SensorType::RADAR;
-  meas_package.raw_measurements_ = VectorXd(3);
-  double ro;        iss >> ro;
-  double theta;     iss >> theta;
-  double ro_dot;    iss >> ro_dot;
-  meas_package.raw_measurements_ << ro, theta, ro_dot;
+static MeasurementPackage getRadarData(istringstream& iss) {
+  MeasurementPackage meas;
+  meas.sensor_type_ = MeasurementPackage::SensorType::RADAR;
+  meas.raw_measurements_ = VectorXd(3);
+  double rho;        iss >> rho;
+  double theta;      iss >> theta;
+  double rho_dot;    iss >> rho_dot;
+  meas.raw_measurements_ << rho, theta, rho_dot;
   long long timestamp;  iss >> timestamp;
-  meas_package.timestamp_ = timestamp;
+  meas.timestamp_ = timestamp;
+
+  return meas;
 }
 
 /**
  * Gets the ground truth values (to be required to compute RMSE)
  */
-static void fillGroundTruthValues(VectorXd& gt_values, istringstream& iss) {
+static VectorXd getGroundTruthValues(istringstream& iss) {
+  VectorXd gt_values(4);
   double x_gt;      iss >> x_gt;      gt_values(0) = x_gt;
   double y_gt;      iss >> y_gt;      gt_values(1) = y_gt;
   double vx_gt;     iss >> vx_gt;     gt_values(2) = vx_gt;
   double vy_gt;     iss >> vy_gt;     gt_values(3) = vy_gt;
+
+  return gt_values;
 }
 
 /**
- * Computes estimated values from KF
+ * Computes estimated values from EKF
  */
-static void fillEstimatedValues(const FusionEKF& fusionEKF, VectorXd& estimate, istringstream& iss) {
+static VectorXd getEstimatedValues(const FusionEKF& fusionEKF) {
+  VectorXd estimate(4);
   double p_x = fusionEKF.ekf_.x_(0);       estimate(0) = p_x;
   double p_y = fusionEKF.ekf_.x_(1);       estimate(1) = p_y;
   double v1  = fusionEKF.ekf_.x_(2);       estimate(2) = v1;
   double v2  = fusionEKF.ekf_.x_(3);       estimate(3) = v2;
+
+  return estimate;
 }
 
 /**
  * Computes data to be fed back to the simulator from C++
  */
-static void fillFeedbackToSimulator(json& msgJson, const VectorXd& estimate, const VectorXd& RMSE) {
+static json getFeedbackForSimulator(const VectorXd& estimate, const VectorXd& RMSE) {
   // kalman filter estimated position x and y
-  // msgJson["estimate_x"] = p_x;
+  json msgJson;
   msgJson["estimate_x"] = estimate(0);
-  // msgJson["estimate_y"] = p_y;
   msgJson["estimate_y"] = estimate(1);
   msgJson["rmse_x"]     = RMSE(0);
   msgJson["rmse_y"]     = RMSE(1);
   msgJson["rmse_vx"]    = RMSE(2);
   msgJson["rmse_vy"]    = RMSE(3);
+
+  return msgJson;
 }
 
 
@@ -109,9 +126,11 @@ static void fillFeedbackToSimulator(json& msgJson, const VectorXd& estimate, con
 /////////////////////////////////////
 
 /**
- * communicate with the Term 2 Simulator receiving data measurements,
- * call a function to run the Kalman filter,
- * call a function to calculate RMSE
+ * Performs the following:
+ * 1. reads in the sensor data measurements line by line from the Simulator and stores in a measurement object
+ * 2. calls Kalman filter on the data to get estimated positions
+ * 3. calls a function to calculate RMSE based on estimated positions and truth values
+ * 4. send estimate values and RMSE values back to simulator to print on screen
  */
 int main()
 {
@@ -121,16 +140,15 @@ int main()
   FusionEKF fusionEKF;
 
   // used to compute the RMSE later
-  Tools tools;
   vector<VectorXd> estimations;
-  vector<VectorXd> ground_truth;
+  vector<VectorXd> ground_truths;
 
   ///////////////////////////////////////////////////////
   // BELOW WE DEFINE A SERIES OF FUNCTION OBJECTS on h //
   ///////////////////////////////////////////////////////
 
   h.onMessage(
-    [&fusionEKF, &tools, &estimations, &ground_truth] (uWS::WebSocket<uWS::SERVER> ws,
+    [&fusionEKF, &estimations, &ground_truths] (uWS::WebSocket<uWS::SERVER> ws,
                                                        char *data,
                                                        size_t length,
                                                        uWS::OpCode opCode) {
@@ -144,7 +162,7 @@ int main()
       // The 2 signifies a websocket event
 
       if (length > 2 && data[0] == '4' && data[1] == '2') {
-        auto s = hasData(std::string(data));
+        auto s = hasIncomingDataFromSimulator(std::string(data));
 
         if (!s.empty()) {
           auto j = json::parse(s);
@@ -154,23 +172,24 @@ int main()
             // INPUT: values provided by the simulator to the c++ program
             // the measurement that the simulator observed (either lidar or radar)
             string sensor_measurment = j[1]["sensor_measurement"];
-
-            MeasurementPackage meas_package;
+            MeasurementPackage meas;
             istringstream iss(sensor_measurment);
 
-        	  // read first element from the current line to determine whether it's a Lidar or Radar data 
+        	  // read first element from the current line to determine whether it's a Lidar or Radar data
         	  string sensor_type;
         	  iss >> sensor_type;
-
         	  if (sensor_type.compare("L") == 0) {
-              fillLaserData(meas_package, iss);
+              meas = getLaserData(iss);
             }
             else if (sensor_type.compare("R") == 0) {
-              fillRadarData(meas_package, iss);
+              meas = getRadarData(iss);
             }
 
-            // Call the EKF-based fusion: receive the measurement data
-            fusionEKF.ProcessMeasurement(meas_package);
+            ///////////////////////////////////////////////////
+            // Call the EKF-based fusion on measurement data //
+            ///////////////////////////////////////////////////
+
+            fusionEKF.ProcessMeasurement(meas);
 
 
             //////////////////////////////////////////////////
@@ -178,24 +197,23 @@ int main()
             //////////////////////////////////////////////////
 
             // ground truth values
-            VectorXd gt_values(4);
-            fillGroundTruthValues(gt_values, iss);            
-            ground_truth.push_back(gt_values);
-            
+            auto gt_values = getGroundTruthValues(iss);
+            ground_truths.push_back(gt_values);
+
         	  // Push the current estimated x,y positon from the Kalman filter's state vector
-        	  VectorXd estimate(4);
-            fillEstimatedValues(fusionEKF, estimate, iss);
+        	  auto estimate = getEstimatedValues(fusionEKF);
         	  estimations.push_back(estimate);
 
             // compute RMSE for comparison
-        	  VectorXd RMSE = tools.CalculateRMSE(estimations, ground_truth);
+        	  auto RMSE = Tools::CalculateRMSE(estimations, ground_truths);
 
 
-            /////////////////////////////////////////////////////////////////
-            // OUTPUT: values provided by the c++ program to the simulator //
-            /////////////////////////////////////////////////////////////////
-            json msgJson;
-            fillFeedbackToSimulator(msgJson, estimate, RMSE);
+            ////////////////////////////////////////////////////
+            // feeback RMSE values and estimated data from KF //
+            // back to simulator to print on screen           //
+            ////////////////////////////////////////////////////
+
+            auto msgJson = getFeedbackForSimulator(estimate, RMSE);
             std::string msg = "42[\"estimate_marker\"," + msgJson.dump() + "]";
             // std::cout << msg << std::endl;
             // ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
