@@ -10,7 +10,8 @@ est (for estimation from KF)
 
 Data Flow:
 -----------------------------
-1) The simulator is generating the FUSION in the following .txt file: "data/obj_pose-laser-radar-synthetic-input.txt" in the following format line by line.
+1) The simulator is generating the FUSION in the following .txt file: "data/obj_pose-laser-radar-synthetic-input.txt"
+in the following format line by line.
 <L, meas_px, meas_py, timestamp, gt_px, gt_py, gt_vx, gt_vy>
 <R, meas_rho, meas_phi, meas_rho_dot, timestamp, gt_px, gt_py, gt_vx, gt_vy, gt_yaw, gt_yawrate>
 
@@ -19,6 +20,10 @@ L 8.45  0.25  1477010443349642  8.45  0.25  -3.00027  0
 R 8.60363 0.02916 -2.99903  1477010443399637  8.6 0.25  -3.00029  0.50  0.003
 
 2) The EKF Algorithm reads from the above file line by line and generates measurement structures.
-3) It predicts and updates for each individual measurements (each line). Results are sent back to simulaotr in the format <est_px, est_py, est_vx, est_vy>.
-4) RMSE values for px, py, vx, vy are computed from the KF estimated values and the ground truth values from the simulator (each line) and sent back to the simulator for the purpose of visualization.
+
+3) It predicts and updates for each individual measurements (each line).
+ Results are sent back to simulaotr in the format <est_px, est_py, est_vx, est_vy>.
+
+4) RMSE values for px, py, vx, vy are computed from the KF estimated values and the ground truth values from the simulator
+ (each line) and sent back to the simulator for the purpose of visualization.
 
