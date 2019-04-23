@@ -10,8 +10,6 @@ tutorials/
 # CLion
 .idea/
 cmake-build-debug/
-CMakeLists.txt
-cmakepatch.txt
 
 # sublime
 *.sublime-project
@@ -19,5 +17,5 @@ cmakepatch.txt
 
 # others
 algorithm.txt
-.set_git.sh
+set_git.sh
 .clang-tidy
